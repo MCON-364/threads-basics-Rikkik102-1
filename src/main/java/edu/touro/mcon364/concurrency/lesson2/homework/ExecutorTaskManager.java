@@ -102,9 +102,15 @@ public class ExecutorTaskManager {
 
         // TODO: hand the task to the pool as a Callable that processes it and
         //       returns it when done — return the Future the pool gives you back
-        return (pool.submit(
-                () -> task
-        ));
+        return pool.submit(() -> {
+            // Simulate processing
+            Thread.sleep(10);
+
+            // Record completion
+            recordCompleted(task);
+
+            return task;
+        });
     }
 
     // ── recording completion ─────────────────────────────────────────────────
@@ -137,8 +143,13 @@ public class ExecutorTaskManager {
      */
     public List<Task> awaitAll(List<Future<Task>> futures) {
         // TODO: implement
-
-        return new ArrayList<>();
+        List<Task> collect = new ArrayList<>();
+        for (Future<Task> future : futures) {
+            try {
+                collect.add(future.get());
+            } catch (InterruptedException | ExecutionException e) {}
+        }
+        return collect;
     }
 
     // ── lifecycle ────────────────────────────────────────────────────────────
@@ -151,6 +162,8 @@ public class ExecutorTaskManager {
      */
     public void shutdown() throws InterruptedException {
         // TODO: implement
+        pool.shutdown();
+        pool.awaitTermination(30, TimeUnit.SECONDS);
     }
 
     // ── observability ────────────────────────────────────────────────────────
@@ -159,12 +172,18 @@ public class ExecutorTaskManager {
     public List<Task> getCompletedTasks() {
         // TODO: protect the read with the same lock used in recordCompleted,
         //       then return a defensive copy so callers cannot mutate internal state
-        return null;
+        lock.lock();
+        try {
+            return List.copyOf(completedTasks);
+        }
+        finally {
+            lock.unlock();
+        }
     }
 
     /** Returns the most recently generated ID (useful for assertions). */
     public int getLastIssuedId() {
         // TODO: read the current value from the ID counter
-        return 0;
+        return IDcounter.get();
     }
 }
